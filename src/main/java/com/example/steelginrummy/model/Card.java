@@ -1,11 +1,11 @@
 package com.example.steelginrummy.model;
 
 public class Card {
-    private int value;
+    private String value;
     private String type;
 
 
-    public Card(int value, String type) {
+    public Card(String value, String type) {
         this.value = value;
         this.type = type;
     }
@@ -18,11 +18,16 @@ public class Card {
         this.type = type;
     }
 
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
     @Override
     public String toString() {
-        return "Card{" +
-                "value=" + value +
-                ", type='" + type +
-                '}';
+        return value + "av " +  type;
     }
 }

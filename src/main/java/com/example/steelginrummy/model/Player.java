@@ -6,6 +6,15 @@ import java.util.List;
 public class Player {
     private String name;
     private List<Card> hand;
+    private boolean isHuman;
+
+    public void setHand(List<Card> hand) {
+        this.hand = hand;
+    }
+
+    public boolean isHuman() {
+        return isHuman;
+    }
 
     public Player(String name) {
         this.name = name;
@@ -25,6 +34,7 @@ public class Player {
     }
 
     public void addCard(Card card) {
+
         this.hand.add(card);
     }
 }
