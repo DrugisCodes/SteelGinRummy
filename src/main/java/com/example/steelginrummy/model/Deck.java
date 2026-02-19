@@ -45,7 +45,4 @@ public class Deck {
         cards.add(card);
     }
 
-
-    //funksjon for å handtere poengsum
-
 }
