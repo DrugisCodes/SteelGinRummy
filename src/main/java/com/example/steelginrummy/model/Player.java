@@ -7,6 +7,16 @@ public class Player {
     private String name;
     private List<Card> hand;
     private boolean isHuman;
+    public boolean hasLaidDown = false;
+    private int totalGameScore = 0;
+
+    public int getTotalGameScore() {
+        return totalGameScore;
+    }
+
+    public Player(int totalGameScore) {
+        this.totalGameScore = totalGameScore;
+    }
 
     public void setHand(List<Card> hand) {
         this.hand = hand;
@@ -36,5 +46,9 @@ public class Player {
     public void addCard(Card card) {
 
         this.hand.add(card);
+    }
+
+    public void addScore(int roundScore) {
+        this.totalGameScore += roundScore;
     }
 }
