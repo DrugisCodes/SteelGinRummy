@@ -14,83 +14,92 @@ import java.util.UUID;
 @Service
 public class GameService {
 
+    private enum TurnPhase { DRAWING, PLAYING, DISCARDING }
+    private TurnPhase currentPhase = TurnPhase.DRAWING;
+
     @Autowired private GameSetupService setupService;
     @Autowired private RuleEngine ruleEngine;
-    @Autowired private TurnManager turnManager;
 
     private final List<Player> players = new ArrayList<>();
     private int currentPlayerIndex = 0;
     private final Deck deck = new Deck();
-    ArrayList<Card> discardPile = new ArrayList<>();
-    private int currentRound = 0;
+    private final List<Card> discardPile = new ArrayList<>();
+    private int currentRound = 1; // Starter på runde 1
     private final List<List<Card>> tableMelds = new ArrayList<>();
 
-    public void startGame() {
-        setupService.prepareNewRound(players, deck, discardPile, currentRound);
 
-        System.out.println("Round " + currentRound);
-        System.out.println("kort på bordet " + (discardPile.size()-1));
+    public void startGame() {
+        this.currentRound = 1; // Sikre at vi starter på 1
+        int cardsToDeal = 5 + currentRound;
+        setupService.prepareNewRound(players, deck, discardPile, cardsToDeal);
+
+        System.out.println("Round " + currentRound + " started with " + cardsToDeal + " cards.");
 
 
     }
 
+    public void drawFromDeck(UUID playerId) {
+        validateTurn(playerId, TurnPhase.DRAWING);
 
-    /**
-     * @param player
-     * @param currentRound
-     */
-    public void executeLayDown(Player player, int currentRound) {
-        if (ruleEngine.canLayDown(player, currentRound)) {
-            player.hasLaidDown = true;
+        if (deck.getCards().isEmpty()) {
+            deck.refillFromDiscard(discardPile);
+        }
 
-            // Henter de spesifikke kortene som utgjør kravene
-            List<List<Card>> meldsToPlace = ruleEngine.identifyRequiredMelds(player.getHand(), currentRound);
+        Card drawn = deck.drawCard();
+        getCurrentPlayer().addCard(drawn);
+        currentPhase = TurnPhase.PLAYING; // Nå kan spilleren legge ned kort
+    }
 
-            // Fjerner disse kortene fra spillerens hånd
-            for (List<Card> meld : meldsToPlace) {
-                player.getHand().removeAll(meld);
-                // TODO: Legg 'meld' til en liste over melds på bordet (table)
+    public void drawFromDiscard(UUID playerId) {
+        validateTurn(playerId, TurnPhase.DRAWING);
+        if (discardPile.isEmpty()) throw new IllegalStateException("Kastebunken er tom!");
+
+        Card drawn = discardPile.remove(discardPile.size() - 1);
+        getCurrentPlayer().addCard(drawn);
+        currentPhase = TurnPhase.PLAYING;
+    }
+
+
+    public void executeLayDown(UUID playerId) {
+        validateTurn(playerId, TurnPhase.PLAYING);
+        Player player = getCurrentPlayer();
+
+        // I siste runde (6) må ALT på hånden brukes for å få lov til å legge ned
+        if (currentRound == 6) {
+            if (!ruleEngine.canLayDown(player, 6)) {
+                System.out.println("Siste runde: Du må kunne gå ut med alle kortene dine!");
+                return;
             }
+        }
 
-            System.out.println(player.getName() + " la ned " + meldsToPlace.size() + " kombinasjoner!");
+        if (ruleEngine.canLayDown(player, currentRound)) {
+            List<List<Card>> melds = ruleEngine.identifyRequiredMelds(player.getHand(), currentRound);
+            for (List<Card> meld : melds) {
+                player.getHand().removeAll(meld);
+                tableMelds.add(meld);
+            }
+            player.hasLaidDown = true;
+            checkWin(player);
         }
     }
 
 
 
     public void performLayOff(UUID playerId, Card card, int meldIndex) {
+        validateTurn(playerId, TurnPhase.PLAYING);
+        Player player = getCurrentPlayer();
 
-        Player player = players.stream()
-                .filter(p -> p.getName().equals(playerId.toString()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Player " + playerId.toString() + " not found!"));
-
-        if(!player.hasLaidDown) {
-            System.out.println("Handling avvist: Du må legge ned egne krav først");
-            return;
-        }
-
-        if (meldIndex < 0 || meldIndex >= tableMelds.size()) {
-            throw new IllegalArgumentException("Ugyldig indeks for kombinasjon på bordet.");
+        if (!player.hasLaidDown) {
+            throw new IllegalStateException("Du må legge ned dine egne krav før du kan bygge på andre!");
         }
 
         List<Card> targetMeld = tableMelds.get(meldIndex);
-
-        if(ruleEngine.canLayOff(card, targetMeld)) {
-
+        if (ruleEngine.canLayOff(card, targetMeld)) {
             player.getHand().remove(card);
             targetMeld.add(card);
-
-            System.out.println(player.getName() + " la ned " + card.getValue() + " på bordet");
-
-            if (player.getHand().isEmpty()) {
-                handleRoundEnd(player);
-
-            } else {
-                System.out.println("Kortet " + card.getValue() + " passer ikke på denne kombinasjonen");
-
-            }
-
+            checkWin(player);
+        } else {
+            System.out.println("Kortet passer ikke!");
         }
     }
 
@@ -111,17 +120,23 @@ public class GameService {
 
     private void prepareNextRound() {
         this.currentRound++;
+        if (currentRound > 6) {
+            gameEnd();
+            return;
+        }
+
         this.tableMelds.clear();
         this.discardPile.clear();
 
-        if (currentRound <= 6) {
-            setupService.prepareNewRound(players, deck, discardPile, currentRound);
-            players.forEach(p -> p.hasLaidDown = false);
-            System.out.println("\n--- GJØR KLAR FOR RUNDE " + currentRound + " ---");
-        } else {
-            // Spillet er over - vi kaller den nye metoden vår
-            gameEnd();
-        }
+        // Logikk: Runde 1 = 6 kort, Runde 2 = 7 kort ... Runde 6 = 11 kort
+        int cardsToDeal = 5 + currentRound;
+
+        setupService.prepareNewRound(players, deck, discardPile, cardsToDeal);
+        players.forEach(p -> p.hasLaidDown = false);
+
+        this.currentPlayerIndex = 0;
+        this.currentPhase = TurnPhase.DRAWING;
+        System.out.println("\n--- RUNDE " + currentRound + " (" + cardsToDeal + " kort) ---");
     }
 
     private void gameEnd() {
@@ -145,6 +160,45 @@ public class GameService {
             System.out.println(finalWinner.getName().toLowerCase() + " vant spillet!");
         }
         System.out.println("========================\n");
+    }
+
+    public void discardCard(UUID playerId, Card card) {
+        validateTurn(playerId, TurnPhase.PLAYING);
+        Player player = getCurrentPlayer();
+
+        player.getHand().remove(card);
+        discardPile.add(card);
+
+        if (player.getHand().isEmpty()) {
+            handleRoundEnd(player);
+        } else {
+            // Gå til neste spiller
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+            currentPhase = TurnPhase.DRAWING;
+            System.out.println("Turen går til neste spiller.");
+        }
+    }
+
+
+
+    //=====hjelpe metoder ======
+    private void checkWin(Player player) {
+        if (player.getHand().isEmpty()) {
+            handleRoundEnd(player);
+        }
+    }
+    private Player getCurrentPlayer() {
+        return players.get(currentPlayerIndex);
+    }
+
+    private void validateTurn(UUID playerId, TurnPhase requiredPhase) {
+        Player player = getCurrentPlayer();
+        if (!player.getName().equals(playerId.toString())) {
+            throw new IllegalStateException("Det er ikke din tur!");
+        }
+        if (currentPhase != requiredPhase) {
+            throw new IllegalStateException("Ugyldig handling i denne fasen. Forventet: " + requiredPhase);
+        }
     }
 
 

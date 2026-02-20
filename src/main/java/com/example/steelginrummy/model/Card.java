@@ -5,7 +5,7 @@ public class Card {
     private final String type;
 
 
-    public Card(String value, String type) {
+    public Card(String type, String value) {
         this.value = value;
         this.type = type;
     }
