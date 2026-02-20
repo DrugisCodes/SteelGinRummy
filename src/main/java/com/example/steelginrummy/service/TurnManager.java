@@ -14,87 +14,62 @@ public class TurnManager {
     @Autowired
     private RuleEngine ruleEngine;
 
-    public boolean handleBuyPriority(List<Card> discardCard, int activePlayerIndex, List<Player> players, Deck deck) {
-        if(discardCard.isEmpty()) {
-            return false;
-        }
+    public boolean handleBuyPriority(List<Card> discardPile, int activePlayerIndex, List<Player> players, Deck deck) {
+        if (discardPile.isEmpty()) return false;
 
-        Card cardToBuy = discardCard.get(discardCard.size()-1);
+        // Henter det øverste kortet fra kastebunken
+        Card cardToBuy = discardPile.get(discardPile.size() - 1);
+        int nextPlayerIndex = (activePlayerIndex + 1) % players.size();
 
-        //personen som står i tur etter spilleren
-        int nextPlayerIndex = (activePlayerIndex+1) % players.size();
-
-        for(int i = 1; i < players.size(); i++) {
+        for (int i = 1; i < players.size(); i++) {
             int targetIndex = (activePlayerIndex + i) % players.size();
             Player potentialBuyer = players.get(targetIndex);
 
-            System.out.println("Asking  " + potentialBuyer.getName() + " Do you want to take " + discardCard + "?");
+            // Her bruker vi den nye determineChoice-metoden
+            Choice choice = determineChoice(potentialBuyer, cardToBuy);
 
-            if(simulatePlayerChoice(potentialBuyer)) {
-                discardCard.remove(cardToBuy);
-                potentialBuyer.getHand().add(cardToBuy);
+            if (choice == Choice.YES) {
+                discardPile.remove(cardToBuy);
+                potentialBuyer.addCard(cardToBuy);
 
-                // 2. Sjekk om det skal gis straffekort
-                if(targetIndex == nextPlayerIndex) {
-                    System.out.println(potentialBuyer.getName() + " took  " + discardCard + "with no pentalty");
-
-                } else {
+                // Straffekort hvis det ikke er din tur
+                if (targetIndex != nextPlayerIndex) {
                     Card penaltyCard = deck.drawCard();
-                    if(penaltyCard != null) {
-                        potentialBuyer.getHand().add(penaltyCard);
-                        System.out.println(potentialBuyer.getName() + " took  " + discardCard + " with pentalty");
-                    }
+                    if (penaltyCard != null) potentialBuyer.addCard(penaltyCard);
+                    System.out.println(potentialBuyer.getName() + " kjøpte kortet med straff!");
                 }
                 return true;
             }
-
-
-            }
-        return false;
-
-
         }
-    private boolean simulatePlayerChoice(Player potentialBuyer) {
         return false;
     }
 
     private Choice determineChoice(Player player, Card card) {
-        if(player.isHuman()) {
-            return Choice.WAITING;
-        } else {
-            return runAiLogic(player, card) ? Choice.YES : Choice.NO;
-        }
+        if (player.isHuman()) return Choice.WAITING;
+        return runAiLogic(player, card) ? Choice.YES : Choice.NO;
     }
 
     private boolean runAiLogic(Player player, Card card) {
+        // REGEL 1: AI takker ALLTID ja til Joker (wildcard + 50 poeng straff for andre!)
+        if (card.getValue().equalsIgnoreCase("JOKER")) return true;
+
         List<Card> currentHand = player.getHand();
 
-        // 1. Fullfører dette kortet et sett (3 eller 4 like)?
-        long matchingRanks = currentHand.stream().filter(c -> c.getValue()
-                                    .equalsIgnoreCase(card.getValue())).count();
+        // Sjekk for sett
+        long matchingRanks = currentHand.stream()
+                .filter(c -> c.getValue().equalsIgnoreCase(card.getValue()))
+                .count();
 
-        if(matchingRanks >= 2) {
-            System.out.println(player.getName() + " wants the card");
-            return true;
-        }
-        // 2. Lager dette kortet et par (nær et sett)?
-        if(matchingRanks == 1) {
-            System.out.println(player.getName() + " wants the card");
-        }
-        // 3. Hjelper kortet på en serie (Run)?
-        if(ruleEngine.isCloseToSeries(currentHand, card)) {
-            return true;
+        if (matchingRanks >= 2) return true;
 
-        }
-        // 4. Strategisk: Er det et veldig lavt kort?
+        // Sjekk om det hjelper på en serie
+        if (ruleEngine.isCloseToSeries(currentHand, card)) return true;
+
+        // Strategisk: Ta lave kort for å minske deadwood
         int cardValue = ruleEngine.mapRankToValue(card, false);
-            if(cardValue <= 3) {
-                return true;
-        }
-        return false;
-
-
+        return cardValue > 0 && cardValue <= 3;
     }
-
-
 }
+
+
+

@@ -44,14 +44,7 @@ public class GameSetupService {
         }
     }
 
-    public List<Card> getPlayerHand(List<Player> players, Deck deck) {
-        for (Player player : players) {
-            if (player.getName().equalsIgnoreCase(player.getName())) {
-                return player.getHand();
-            }
-        }
-     return new ArrayList<>();
-    }
+
 
 
 }

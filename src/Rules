@@ -1,0 +1,17 @@
+skal forklare deg reglene til gin rummy spillet mitt også viser hva som har blitt implementert.
+
+begynner med 6 kort og øker for hver runde opp til 11
+
+vi skal enten samle på tres ( 3 like eller mer), serie ( samme type men må være consecutive 4) eller en blanding av begge to
+
+vi har 2 drawstacks. en vanlig og en discard pile. en kan bare trekke det øverste kortet fra enten ene eller andre stack/array
+
+dersom en spiller har skaffet seg riktig antall med serier og tres og det er spilleren sin tur, må den alltid trekke opp et kort fra den stacken den vil, også kan den ligge ned de kortene som passe reglene ned på bordet.
+
+dersom en annen spiller også har lagt ned og ingen har blitt kvitt kortene sine, kan dem som har lagt ned bygge på en annen spiller sin serie eller tres så lenge det passer inn og er på sin tur. må alltid trekke opp et kort. en spiller vinner runden ved å bli kvitt alle kortene sine, inkludert det som er trekt opp fra stackene.
+
+i siste runde av spillet kan en ikke ligge ned kortene på bordet, visst ikke alle kort, inkludert det som en trekker opp, bidrar til seriene og tres sin.
+
+etter hver runde blir det telt opp straffe poengsum på kortene sine. og helt til sist summerer en det til sammen og finner vinneren. vinneren fra hver runde får selfølgelig 0 poeng. kortene som blir lagt i bordet telles ikke som kort som er igjen hos de andre spilleren. de kortene er "borte"
+
+spiller med 2 kortstokker inkludert joker
